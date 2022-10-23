@@ -1,0 +1,146 @@
+* Notes
+I first referred to Section 2 within the Active Record Validation methods here:
+- https://guides.rubyonrails.org/active_record_validations.html
+
+The lab provided a 'Person' class to utilize the 'validates:' keyword accordingly:
+#+begin_src ruby
+  class Person < ActiveRecord::Base
+    validates :name, presence: true
+  end
+
+  Person.create(name: "John Doe").valid?
+  # --> Evaluates to 'true'
+
+  Person.create(name: nil).valid?
+  # --> Evaluates to 'false'
+#+end_src
+
+Note On Difference Between .new() and .create:
+- .new(): This method will instantiate a new Active Record model without saving it to the database
+- .create(): This method will immediately attempt to call both .new() and .save() to create a new Active Record model, and attempt to save it to the database
+- What this means: An Active Record model instatiated with '#new' will not be validated
+- Also: The only way to trigger validation without saving to the database is to call the '#valid?' method
+
+Reason To Use '!' At The End Of Every Database Method:
+- '#save' only returns 'false' and declines to update the database if it is unable to do so properly
+- Therefore, if you use '!' at the end of the '#create' method, it will raise an exception
+
+Example of using '#valid?' to manually check validation:
+#+begin_src ruby
+  class Person
+    validates :name, presence: true
+  end
+
+  person = Person.new()
+  person.valid? #=> false
+  person.save() #=> false
+  person.save! #=> EXCEPTION
+#+end_src
+
+You can check error messages from validation with the '.errors.messages()' method:
+#+begin_src ruby
+person = Person.new()
+person.errors.messages #=> empty
+person.save #=> false
+person.valid? #=> false
+person.errors.messages #=> name: can't be blank
+#+end_src
+
+You can also check an attribute one at a time by passing 'errors' as a key value:
+#+begin_src ruby
+Persons.errors[:name]
+#+end_src
+
+You can also choose to use 'if else' statements to selectively render json objects from returned responses with specific error messages:
+#+begin_src ruby
+  def create
+    person = Person.create(person_params)
+    if person.valid?
+      render json: person, status: :created
+    else
+      render json: { error: person.errors }, status: :unprocessable_entity
+    end
+  end
+#+end_src
+
+You can also use nicely formatted error messages with the '.full_messages()' method:
+#+begin_src ruby
+  def create
+    person = Person.create(person_params)
+    if person.valid?
+      render json: person, status: :created
+    else
+      render json: { errors: person.errors.full_messages }, status: :unprocessable_entity
+    end
+  end
+#+end_src
+
+Same example as before, but using 'ActiveRecord::RecordInvalid' within a 'rescue' control flow instead of using an 'if else' block:
+#+begin_src ruby
+  def create
+    person = Person.create!(person_params)
+    render json: person, status: :created
+  rescue ActiveRecord::RecordInvalid => invalid
+    render json: { errors: invalid.record.errors.full_messages }, status: :unprocessable_entity
+  end
+#+end_src
+
+Other Built-In Validators:
+
+Using the 'length' built-in validator:
+#+begin_src ruby
+  class Person < ActiveRecord::Base
+    validates :name, length: { minimum: 2 }
+    validates :bio, length: { maximum: 500 }
+    validates :password, length: { in: 6..20 }
+    validates :registration_number, length: { is: 6 }
+  end
+#+end_src
+
+Same example but NOT using Ruby's 'poetry mode':
+#+begin_src ruby
+  class Person < Active Record::Base
+    validates(:name, { :length => { :minimum => 2 } })
+    validates(:bio, { :length => { :maximum => 500 } })
+    validates(:password, { :length => { :in => 6..20 } })
+    validates(:registration_number, { :length => { :is => 6 } })
+  end
+#+end_src
+
+Example Of Using 'Uniqueness' Validator:
+#+begin_src ruby
+  class Account < ActiveRecord::Base
+    validates :email, uniqueness: true
+  end
+#+end_src
+
+Example Of Using 'message' Attribute To Create A Custom Message For Error Validation:
+#+begin_src ruby
+  class Person < ActiveRecord::Base
+    validates :not_a_robot, acceptance: true, message: "Humans only!"
+  end
+#+end_src
+
+The lesson then referred to Section 6 of the Ruby On Rails guide on how to create custom validations:
+- https://guides.rubyonrails.org/active_record_validations.html#performing-custom-validations
+
+Example of using a custom validation method to validate an email address in which we call the '#validate' method and pass in a method called 'must_have_flatiron_email' to perform our own custom validation:
+#+begin_src ruby
+  class Person
+    validate :must_have_flatiron_email
+
+    def must_have_flatiron_email
+      unless email.match?(/flatironschool.com/)
+        errors.add(:email, "We're only allowed to have people who work for the company in the database!")
+      end
+    end
+  end
+#+end_src
+
+Answers To Check Your Understanding
+- Q1. When would you use the validates method vs. the validate method? What argument(s) get passed to each of them?
+- Answer: '.validates()' would be used to trigger normal validation if you want to provide specific attributes of columns to check for specific values. '.validate()' would be used to trigger custom validation if you want to use a custom validation method in tandem with it.
+- Q2. What are two ways to trigger validation?
+- Answer: Using '#valid?' method, and using the '#create' method (since it automatically calls #new, and #save methods to create and save an Active Record model into the database)
+- Q3. How can you get Active Record to return an Exception when validation fails?
+- Answer: By using a '!' after the Active Record method that you want to return an exception for --> ex: '.save!'
